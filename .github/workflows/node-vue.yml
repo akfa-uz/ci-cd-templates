@@ -48,7 +48,7 @@ jobs:
       #          npm run build
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login ghcr.io -u ${{ secrets.DOCKERHUB_USER}} --password-stdin
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login ailabcau -u ${{ secrets.DOCKERHUB_USER}} --password-stdin
 
       - name: Build and Push Docker Image
         run: |
@@ -64,7 +64,7 @@ jobs:
     needs: build-and-push
     steps:
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login ghcr.io -u ${{ secrets.DOCKERHUB_USER}} --password-stdin
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login ailabcau -u ${{ secrets.DOCKERHUB_USER}} --password-stdin
 
       - name: Deploy to Production
         run: |

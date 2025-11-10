@@ -34,7 +34,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          IMAGE="ghcr.io/${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}"
+          IMAGE="ailabcau/${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}"
           docker build -t $IMAGE .
           docker push $IMAGE
 

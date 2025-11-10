@@ -19,6 +19,9 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build_image.outputs.image }}
+
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.0
 
@@ -35,6 +38,8 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
           docker build -t $IMAGE .
           docker push $IMAGE
 
@@ -53,6 +58,10 @@ jobs:
 
       - name: Deploy to Production
         run: |
+
+          IMAGE="${{ needs.build.outputs.image }}"
+          echo "Deploying -> $IMAGE"
+
           docker pull $IMAGE
           docker service update \
             --force \

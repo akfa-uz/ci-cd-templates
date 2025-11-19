@@ -1,0 +1,51 @@
+name: discord-alert
+
+on:
+    workflow_call:
+        inputs:
+            status:
+                required: true
+                type: string
+        secrets:
+            DISCORD_WEBHOOK:
+                required: true
+
+jobs:
+    send-alert:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Set Tashkent time
+              run: echo "BUILD_TIME=$(TZ=Asia/Tashkent date '+%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_ENV
+
+            - name: Send Discord Alert
+              run: |
+                  if [[ "${{ inputs.status }}" == "success" ]]; then
+                    TITLE="✅ Deploy Succeeded!"
+                    COLOR=3447003
+                  else
+                    TITLE="❌ Deploy Failed!"
+                    COLOR=16711680
+                  fi
+
+                  curl -H "Content-Type: application/json" \
+                    -X POST \
+                    -d "{
+                      \"username\": \"github-action-ci/cd\",
+                      \"avatar_url\": \"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\",
+                      \"embeds\": [{
+                        \"title\": \"$TITLE\",
+                        \"color\": $COLOR,
+                        \"fields\": [
+                          {\"name\": \"👤 Full Name\", \"value\": \"${{ github.event.head_commit.author.name }}\", \"inline\": true},
+                          {\"name\": \"👤 Username\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                          {\"name\": \"🔗 Commit message\", \"value\": \"${{ github.event.commits[0].message }}\"},
+                          {\"name\": \"📁 Repository\", \"value\": \"${{ github.repository }}\", \"inline\": true},
+                          {\"name\": \"🌿 Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                          {\"name\": \"📌 Status\", \"value\": \"${{ inputs.status }}\", \"inline\": true},
+                          {\"name\": \"🕒 Time\", \"value\": \"${{ env.BUILD_TIME }}\", \"inline\": true},
+                          {\"name\": \"🔍 See changes\", \"value\": \"https://github.com/${{ github.repository }}/commit/${{ github.sha }}\"}
+                        ]
+                      }]
+                    }" \
+                    ${{ secrets.DISCORD_WEBHOOK }}

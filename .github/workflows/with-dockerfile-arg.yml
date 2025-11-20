@@ -43,7 +43,7 @@ jobs:
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          docker build --build-arg DATABASE_URL="${{ inputs.db_arg }}" -t $IMAGE . 
+          docker build --build-arg DATABASE_URL=${{ inputs.db_arg }} -t $IMAGE . 
           docker push $IMAGE
 
   deploy:

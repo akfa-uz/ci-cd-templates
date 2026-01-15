@@ -44,7 +44,7 @@ jobs:
 
   deploy:
     runs-on: ${{
-      github.ref_name == 'main' && 'caupuls' ||
+      github.ref_name == 'main' && 'davo-runner' ||
       github.ref_name == 'dev' && 'dev-runner' ||
       github.ref_name == 'dev-02' && 'dev-runner'
       }}

@@ -10,11 +10,11 @@ on:
         description: "Service name for deployment"
         required: true
         type: string
-    secrets:
-      DOCKERHUB_USER:
-        required: true
-      DOCKERHUB_TOKEN:
-        required: true
+    # secrets:
+    #   #DOCKERHUB_USER:
+    #     required: true
+    #   #DOCKERHUB_TOKEN:
+    #     #required: true
 jobs:
   build-and-push:
     name: Build and Push Docker Image
@@ -29,11 +29,11 @@ jobs:
         id: vars
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USER }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push Docker Image
         run: |
@@ -49,11 +49,11 @@ jobs:
       }}
     needs: build-and-push
     steps:
-      - name: Login to Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USER }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Deploy to Production
         run: |

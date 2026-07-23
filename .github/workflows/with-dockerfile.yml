@@ -45,6 +45,7 @@ jobs:
   deploy:
     runs-on: ${{
       github.ref_name == 'main' && 'edu-runner' ||
+      github.ref_name == 'master' && 'edu-runner' ||
       github.ref_name == 'dev' && 'dev-runner' ||
       github.ref_name == 'dev-02' && 'dev-runner'
       }}

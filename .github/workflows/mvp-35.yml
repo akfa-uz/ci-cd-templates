@@ -44,9 +44,9 @@ jobs:
 
   deploy:
     runs-on: ${{
-      github.ref_name == 'main' && 'mvp_runner' ||
-      github.ref_name == 'dev' && 'mvp_runner' ||
-      github.ref_name == 'dev-02' && 'mvp_runner'
+      github.ref_name == 'main' && 'mvp_runner_new' ||
+      github.ref_name == 'dev' && 'mvp_runner_new' ||
+      github.ref_name == 'dev-02' && 'mvp_runner_new'
       }}
     needs: build-and-push
     steps:

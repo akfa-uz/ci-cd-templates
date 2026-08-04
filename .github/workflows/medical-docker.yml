@@ -58,7 +58,7 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          IMAGE="harbor.agentshub.uz/ailabcau/${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}" 
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}" 
           docker pull $IMAGE
           docker service update \
             --force \

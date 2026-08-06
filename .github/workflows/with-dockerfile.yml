@@ -34,7 +34,16 @@ jobs:
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login harbor.agentshub.uz \
             --username "${{ secrets.DOCKERHUB_USER }}" \
             --password-stdin
-
+        # Create .npmrc for GitHub Packages
+      - name: Create .npmrc
+        run: |
+          cat > .npmrc <<EOF
+          @akfa-uz:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          
       - name: Build and Push Docker Image
         run: |
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"

@@ -52,6 +52,8 @@ jobs:
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           docker build -t $IMAGE .
           docker push $IMAGE
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
 
   deploy:
     runs-on: ${{

@@ -41,7 +41,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}"
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           docker build --build-arg DATABASE_URL=${{ inputs.db_arg }} -t $IMAGE . 
           docker push $IMAGE
@@ -62,7 +62,7 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USER }}/${{ inputs.image_name }}:${{ github.sha }}" 
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
           docker pull $IMAGE
           docker service update \
             --force \

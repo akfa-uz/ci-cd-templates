@@ -33,11 +33,11 @@ jobs:
         id: vars
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Harbor Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login harbor.agentshub.uz \
+            --username "${{ secrets.DOCKERHUB_USER }}" \
+            --password-stdin
 
       - name: Build and Push Docker Image
         run: |
@@ -54,11 +54,11 @@ jobs:
       }}
     needs: build-and-push
     steps:
-      - name: Login to Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Harbor Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login harbor.agentshub.uz \
+            --username "${{ secrets.DOCKERHUB_USER }}" \
+            --password-stdin
 
       - name: Deploy to Production
         run: |

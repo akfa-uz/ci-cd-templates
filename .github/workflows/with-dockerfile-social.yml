@@ -1,0 +1,80 @@
+name: Build & Deploy to Server (Reusable)
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: "Image name for GHCR"
+        required: true
+        type: string
+      service_name:
+        description: "Service name for deployment"
+        required: true
+        type: string
+    secrets:
+      DOCKERHUB_USER:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-and-push.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.0
+
+      - name: Set image tag (short commit)
+        id: vars
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Harbor Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login harbor.agentshub.uz \
+            --username "${{ secrets.DOCKERHUB_USER }}" \
+            --password-stdin
+        #Create .npmrc for GitHub Packages
+      - name: Create .npmrc
+        run: |
+          cat > .npmrc <<EOF
+          @akfa-uz:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          docker build -t $IMAGE .
+          docker push $IMAGE
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+  deploy:
+    runs-on: ${{
+      github.ref_name == 'main' && 'prod-social' ||
+      github.ref_name == 'master' && 'prod-social' ||
+      github.ref_name == 'dev' && 'dev-social'
+      }}
+    needs: build-and-push
+    steps:
+      - name: Harbor Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login harbor.agentshub.uz \
+            --username "${{ secrets.DOCKERHUB_USER }}" \
+            --password-stdin
+
+      - name: Deploy to Production
+        run: |
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
+          docker pull $IMAGE
+          docker service update \
+            --force \
+            --with-registry-auth \
+            --detach=false \
+            --image $IMAGE \
+            ${{ inputs.service_name }}         
+          docker container prune -f

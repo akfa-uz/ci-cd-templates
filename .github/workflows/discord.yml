@@ -28,7 +28,8 @@ jobs:
                     COLOR=16711680
                   fi
 
-                  curl -H "Content-Type: application/json" \
+                  curl --fail-with-body \
+                    -H "Content-Type: application/json" \
                     -X POST \
                     -d "{
                       \"username\": \"github-action-ci/cd\",

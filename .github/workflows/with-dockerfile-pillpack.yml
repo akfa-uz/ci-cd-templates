@@ -69,16 +69,29 @@ jobs:
 
       - name: Deploy to Production
         run: |
+          # GitHub runs this under `bash -e`: a failing command ends the step at once, so
+          # the diagnostics are printed BEFORE the update (the previous attempt's task
+          # state and container log) and the update itself runs inside an if/else.
           set -uo pipefail
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
           SERVICE="${{ inputs.service_name }}"
+
+          diagnostics() {
+            echo "::group::docker service ps $SERVICE ($1)"
+            docker service ps "$SERVICE" --no-trunc | head -12 || true
+            echo "::endgroup::"
+            echo "::group::docker service logs $SERVICE — last 150 lines ($1)"
+            docker service logs "$SERVICE" --tail 150 2>&1 | tail -150 || true
+            echo "::endgroup::"
+          }
+
+          diagnostics "before update"
           docker pull "$IMAGE"
 
-          # start-first: the new task starts NEXT TO the old one and the old one is
-          # stopped only once the new one is healthy (Dockerfile HEALTHCHECK on /health),
-          # so a deploy never answers 502 and a broken build never takes the old one down.
-          # On failure swarm rolls back to the previous spec, same order.
-          docker service update \
+          # start-first: the new task starts next to the old one; the old one is stopped
+          # only once the new one is healthy (HEALTHCHECK on /health). On failure swarm
+          # rolls back to the previous spec in the same order.
+          if docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
@@ -87,19 +100,15 @@ jobs:
             --update-monitor 60s \
             --rollback-order start-first \
             --image "$IMAGE" \
-            "$SERVICE"
-          STATUS=$?
+            "$SERVICE"; then
+            STATUS=0
+          else
+            STATUS=$?
+          fi
 
-          # Always show what happened — the task list (with the failure reason of a task
-          # that died) and the container's own log — whether or not the update succeeded.
-          echo "::group::docker service ps $SERVICE"
-          docker service ps "$SERVICE" --no-trunc | head -10
-          echo "::endgroup::"
-          echo "::group::docker service logs $SERVICE (last 150 lines)"
-          docker service logs "$SERVICE" --tail 150 2>&1 | tail -150 || true
-          echo "::endgroup::"
+          diagnostics "after update (exit $STATUS)"
 
-          RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}')
+          RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}' || true)
           echo "running: $RUNNING"
           if [ "$STATUS" -ne 0 ]; then
             echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"

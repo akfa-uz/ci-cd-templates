@@ -19,6 +19,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       image: ${{ steps.build-and-push.outputs.image }}
 
@@ -60,6 +61,9 @@ jobs:
       github.ref_name == 'dev' && 'dev-pillpack'
       }}
     needs: build-and-push
+    # A deploy that has not converged in 20 minutes is stuck (swarm keeps restarting a
+    # task that cannot start); GitHub ends the job so the runner is free for the next push.
+    timeout-minutes: 20
     steps:
       - name: Harbor Login
         run: |
@@ -91,7 +95,10 @@ jobs:
           # start-first: the new task starts next to the old one; the old one is stopped
           # only once the new one is healthy (HEALTHCHECK on /health). On failure swarm
           # rolls back to the previous spec in the same order.
-          if docker service update \
+          # A new task that crash-loops can keep `--detach=false` monitoring for a very
+          # long time (35+ min seen on 2026-11-18); bound it so the step always ends and
+          # the diagnostics below are always printed.
+          if timeout 12m docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
@@ -111,7 +118,8 @@ jobs:
           RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}' || true)
           echo "running: $RUNNING"
           if [ "$STATUS" -ne 0 ]; then
-            echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"
+            [ "$STATUS" -eq 124 ] && echo "::error::docker service update did not converge within 12 minutes (new task keeps restarting?); see the log groups above" \
+              || echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"
             exit 1
           fi
           case "$RUNNING" in

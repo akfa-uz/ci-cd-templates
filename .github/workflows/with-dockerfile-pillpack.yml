@@ -80,17 +80,23 @@ jobs:
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
           SERVICE="${{ inputs.service_name }}"
 
+          # `docker service logs` hangs when the service has a trail of dead tasks (it did,
+          # for 20 minutes, three times on 2026-11-18), so the diagnostics read the task
+          # list and the containers on THIS node directly, each call bounded.
           diagnostics() {
             echo "::group::docker service ps $SERVICE ($1)"
-            docker service ps "$SERVICE" --no-trunc | head -12 || true
+            timeout 30s docker service ps "$SERVICE" --no-trunc 2>&1 | head -12 || true
             echo "::endgroup::"
-            echo "::group::docker service logs $SERVICE — last 150 lines ($1)"
-            docker service logs "$SERVICE" --tail 150 2>&1 | tail -150 || true
+            echo "::group::container logs on this node — last 120 lines of the 2 newest ($1)"
+            for c in $(timeout 15s docker ps -a --filter "name=$SERVICE" --format '{{.ID}}' 2>/dev/null | head -2); do
+              echo "--- container $c: $(timeout 10s docker inspect -f '{{.Config.Image}} | {{.State.Status}} | exit {{.State.ExitCode}} | started {{.State.StartedAt}}' "$c" 2>/dev/null)"
+              timeout 20s docker logs --tail 120 "$c" 2>&1 | grep -v "npm notice" || true
+            done
             echo "::endgroup::"
           }
 
           diagnostics "before update"
-          docker pull "$IMAGE"
+          timeout 5m docker pull "$IMAGE"
 
           # start-first: the new task starts next to the old one; the old one is stopped
           # only once the new one is healthy (HEALTHCHECK on /health). On failure swarm
@@ -98,14 +104,25 @@ jobs:
           # A new task that crash-loops can keep `--detach=false` monitoring for a very
           # long time (35+ min seen on 2026-11-18); bound it so the step always ends and
           # the diagnostics below are always printed.
-          if timeout 12m docker service update \
+          # Fail fast: the new task gets 3 starts within 3 minutes (restart policy); the
+          # update watches every task failure for 30 s after start (monitor, max failure
+          # ratio 0) and rolls back on the first one. A task that cannot come up therefore
+          # fails the step in a few minutes instead of being restarted forever; `timeout`
+          # is only the last resort.
+          if timeout 6m docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
+            --restart-condition on-failure \
+            --restart-max-attempts 3 \
+            --restart-delay 5s \
+            --restart-window 3m \
             --update-order start-first \
             --update-failure-action rollback \
-            --update-monitor 60s \
+            --update-max-failure-ratio 0 \
+            --update-monitor 30s \
             --rollback-order start-first \
+            --rollback-failure-action pause \
             --image "$IMAGE" \
             "$SERVICE"; then
             STATUS=0
@@ -118,7 +135,7 @@ jobs:
           RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}' || true)
           echo "running: $RUNNING"
           if [ "$STATUS" -ne 0 ]; then
-            [ "$STATUS" -eq 124 ] && echo "::error::docker service update did not converge within 12 minutes (new task keeps restarting?); see the log groups above" \
+            [ "$STATUS" -eq 124 ] && echo "::error::docker service update did not converge within 6 minutes; see the log groups above" \
               || echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"
             exit 1
           fi

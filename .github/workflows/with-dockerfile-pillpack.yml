@@ -69,31 +69,44 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          set -euo pipefail
+          set -uo pipefail
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
           SERVICE="${{ inputs.service_name }}"
           docker pull "$IMAGE"
 
-          # A new task that never starts (crash loop, failed migration, no health) used to
-          # leave the update "paused" with exit code 0, the old image still serving and
-          # this job green. Roll back instead, and fail loudly below.
+          # start-first: the new task starts NEXT TO the old one and the old one is
+          # stopped only once the new one is healthy (Dockerfile HEALTHCHECK on /health),
+          # so a deploy never answers 502 and a broken build never takes the old one down.
+          # On failure swarm rolls back to the previous spec, same order.
           docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
+            --update-order start-first \
             --update-failure-action rollback \
             --update-monitor 60s \
+            --rollback-order start-first \
             --image "$IMAGE" \
             "$SERVICE"
+          STATUS=$?
+
+          # Always show what happened — the task list (with the failure reason of a task
+          # that died) and the container's own log — whether or not the update succeeded.
+          echo "::group::docker service ps $SERVICE"
+          docker service ps "$SERVICE" --no-trunc | head -10
+          echo "::endgroup::"
+          echo "::group::docker service logs $SERVICE (last 150 lines)"
+          docker service logs "$SERVICE" --tail 150 2>&1 | tail -150 || true
+          echo "::endgroup::"
 
           RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}')
-          echo "$RUNNING"
+          echo "running: $RUNNING"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"
+            exit 1
+          fi
           case "$RUNNING" in
             *"$IMAGE"*Running*) echo "deploy ok: $SERVICE is running $IMAGE" ;;
-            *)
-              echo "::error::$SERVICE is not running $IMAGE"
-              docker service ps "$SERVICE" --no-trunc | head -5
-              docker service logs "$SERVICE" --tail 100 2>&1 | tail -60
-              exit 1 ;;
+            *) echo "::error::$SERVICE is not running $IMAGE"; exit 1 ;;
           esac
           docker container prune -f

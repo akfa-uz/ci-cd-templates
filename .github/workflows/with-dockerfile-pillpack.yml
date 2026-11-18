@@ -19,6 +19,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       image: ${{ steps.build-and-push.outputs.image }}
 
@@ -60,6 +61,9 @@ jobs:
       github.ref_name == 'dev' && 'dev-pillpack'
       }}
     needs: build-and-push
+    # A deploy that has not converged in 20 minutes is stuck (swarm keeps restarting a
+    # task that cannot start); GitHub ends the job so the runner is free for the next push.
+    timeout-minutes: 20
     steps:
       - name: Harbor Login
         run: |

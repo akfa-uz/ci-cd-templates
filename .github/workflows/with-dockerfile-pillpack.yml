@@ -23,7 +23,7 @@ jobs:
       image: ${{ steps.build-and-push.outputs.image }}
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24)
 
       - name: Set image tag (short commit)
         id: vars
@@ -69,12 +69,31 @@ jobs:
 
       - name: Deploy to Production
         run: |
+          set -euo pipefail
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
-          docker pull $IMAGE
+          SERVICE="${{ inputs.service_name }}"
+          docker pull "$IMAGE"
+
+          # A new task that never starts (crash loop, failed migration, no health) used to
+          # leave the update "paused" with exit code 0, the old image still serving and
+          # this job green. Roll back instead, and fail loudly below.
           docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
-            --image $IMAGE \
-            ${{ inputs.service_name }}         
+            --update-failure-action rollback \
+            --update-monitor 60s \
+            --image "$IMAGE" \
+            "$SERVICE"
+
+          RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}')
+          echo "$RUNNING"
+          case "$RUNNING" in
+            *"$IMAGE"*Running*) echo "deploy ok: $SERVICE is running $IMAGE" ;;
+            *)
+              echo "::error::$SERVICE is not running $IMAGE"
+              docker service ps "$SERVICE" --no-trunc | head -5
+              docker service logs "$SERVICE" --tail 100 2>&1 | tail -60
+              exit 1 ;;
+          esac
           docker container prune -f

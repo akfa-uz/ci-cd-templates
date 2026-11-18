@@ -98,14 +98,25 @@ jobs:
           # A new task that crash-loops can keep `--detach=false` monitoring for a very
           # long time (35+ min seen on 2026-11-18); bound it so the step always ends and
           # the diagnostics below are always printed.
-          if timeout 12m docker service update \
+          # Fail fast: the new task gets 3 starts within 3 minutes (restart policy); the
+          # update watches every task failure for 30 s after start (monitor, max failure
+          # ratio 0) and rolls back on the first one. A task that cannot come up therefore
+          # fails the step in a few minutes instead of being restarted forever; `timeout`
+          # is only the last resort.
+          if timeout 6m docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
+            --restart-condition on-failure \
+            --restart-max-attempts 3 \
+            --restart-delay 5s \
+            --restart-window 3m \
             --update-order start-first \
             --update-failure-action rollback \
-            --update-monitor 60s \
+            --update-max-failure-ratio 0 \
+            --update-monitor 30s \
             --rollback-order start-first \
+            --rollback-failure-action pause \
             --image "$IMAGE" \
             "$SERVICE"; then
             STATUS=0
@@ -118,7 +129,7 @@ jobs:
           RUNNING=$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.Image}} {{.CurrentState}}' || true)
           echo "running: $RUNNING"
           if [ "$STATUS" -ne 0 ]; then
-            [ "$STATUS" -eq 124 ] && echo "::error::docker service update did not converge within 12 minutes (new task keeps restarting?); see the log groups above" \
+            [ "$STATUS" -eq 124 ] && echo "::error::docker service update did not converge within 6 minutes; see the log groups above" \
               || echo "::error::docker service update exited $STATUS — the new task did not start; see the log groups above"
             exit 1
           fi

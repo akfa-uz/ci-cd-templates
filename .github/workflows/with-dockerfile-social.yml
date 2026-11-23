@@ -83,15 +83,6 @@ jobs:
             --detach=false \
             --image $IMAGE \
             "$SERVICE"
-            
-          echo "======================================"
-          echo "Production Service Logs"
-          echo "======================================"
-
-          timeout 60s docker service logs \
-            --follow \
-            --timestamps \
-            "${{ inputs.service_name }}" || true
 
           echo "Cleaning up unused containers..."
           docker container prune -f

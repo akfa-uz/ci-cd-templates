@@ -70,11 +70,29 @@ jobs:
       - name: Deploy to Production
         run: |
           IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
+          SERVICE="${{ inputs.service_name }}"
+          
+          echo "Pulling image: $IMAGE"
           docker pull $IMAGE
+
+          echo "Updating service: $SERVICE"
+          
           docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
             --image $IMAGE \
-            ${{ inputs.service_name }}         
+            "$SERVICE"
+            
+          echo "======================================"
+          echo "Production Service Logs"
+          echo "======================================"
+
+          docker service logs \
+            --tail 100 \
+            --timestamps \
+            --follow \
+            "${{ inputs.service_name }}"
+
+          echo "Cleaning up unused containers..."
           docker container prune -f

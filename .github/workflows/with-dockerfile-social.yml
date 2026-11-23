@@ -88,9 +88,10 @@ jobs:
           echo "Production Service Logs"
           echo "======================================"
 
-          docker service logs \
+          timeout 60s docker service logs \
+            --follow \
             --timestamps \
-            "${{ inputs.service_name }}"
+            "${{ inputs.service_name }}" || true
 
           echo "Cleaning up unused containers..."
           docker container prune -f

@@ -81,13 +81,5 @@ jobs:
             --image $IMAGE \
             ${{ inputs.service_name }}         
 
-          echo "======================================"
-          echo "Production Service Logs"
-          echo "======================================"
-
-          docker service logs \
-            --timestamps \
-            "${{ inputs.service_name }}"
-
           echo "Cleaning up unused containers..."
           docker container prune -f

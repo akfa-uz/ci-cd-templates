@@ -89,7 +89,6 @@ jobs:
           echo "======================================"
 
           docker service logs \
-            --tail 100 \
             --timestamps \
             --follow \
             "${{ inputs.service_name }}"

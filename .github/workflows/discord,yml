@@ -1,0 +1,76 @@
+name: discord-alert
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        required: true
+        type: string
+    secrets:
+      DISCORD_WEBHOOK:
+        required: true
+
+jobs:
+  send-alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord Alert
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          STATUS: ${{ inputs.status }}
+          AUTHOR_NAME: ${{ github.event.head_commit.author.name }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(TZ=Asia/Tashkent date '+%Y-%m-%d %H:%M:%S %Z')
+
+          if [[ "$STATUS" == "success" ]]; then
+            TITLE="✅ Deploy Succeeded!"
+            COLOR=3447003
+          else
+            TITLE="❌ Deploy Failed!"
+            COLOR=16711680
+          fi
+
+          # Discord limits field values to 1024 chars
+          COMMIT_MSG="${COMMIT_MSG:0:1000}"
+
+          PAYLOAD=$(jq -n \
+            --arg title "$TITLE" \
+            --argjson color "$COLOR" \
+            --arg author "$AUTHOR_NAME" \
+            --arg actor "$ACTOR" \
+            --arg msg "$COMMIT_MSG" \
+            --arg repo "$REPO" \
+            --arg branch "$BRANCH" \
+            --arg status "$STATUS" \
+            --arg time "$BUILD_TIME" \
+            --arg url "https://github.com/$REPO/commit/$SHA" \
+            '{
+              username: "github-action-ci/cd",
+              avatar_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+              embeds: [{
+                title: $title,
+                color: $color,
+                fields: [
+                  {name: "👤 Full Name",      value: ($author | if . == "" then "-" else . end), inline: true},
+                  {name: "👤 Username",       value: $actor,  inline: true},
+                  {name: "🔗 Commit message", value: ($msg    | if . == "" then "-" else . end)},
+                  {name: "📁 Repository",     value: $repo,   inline: true},
+                  {name: "🌿 Branch",         value: $branch, inline: true},
+                  {name: "📌 Status",         value: $status, inline: true},
+                  {name: "🕒 Time",           value: $time,   inline: true},
+                  {name: "🔍 See changes",    value: $url}
+                ]
+              }]
+            }')
+
+          curl --fail-with-body \
+            -H "Content-Type: application/json" \
+            -X POST \
+            -d "$PAYLOAD" \
+            "$WEBHOOK"

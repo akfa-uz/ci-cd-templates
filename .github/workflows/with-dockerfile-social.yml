@@ -82,7 +82,7 @@ jobs:
              --with-registry-auth \
              --detach=false \
              --image $IMAGE \
-             "$SERVICE"
+             "$SERVICE"; then
              echo "Deployment failed! Collecting diagnostics..."
 
              docker service ps "$SERVICE" --no-trunc

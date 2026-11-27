@@ -76,7 +76,7 @@ jobs:
             --with-registry-auth \
             --detach=false \
             --update-failure-action continue \
-            -update-monitor 60s \
+            --update-monitor 60s \
             --image $IMAGE \
             ${{ inputs.service_name }}  
 

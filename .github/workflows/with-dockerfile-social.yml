@@ -77,12 +77,28 @@ jobs:
 
           echo "Updating service: $SERVICE"
           
-          docker service update \
-            --force \
-            --with-registry-auth \
-            --detach=false \
-            --image $IMAGE \
-            "$SERVICE"
+          if ! docker service update \
+             --force \
+             --with-registry-auth \
+             --detach=false \
+             --image $IMAGE \
+             "$SERVICE"
+             echo "Deployment failed! Collecting diagnostics..."
 
+             docker service ps "$SERVICE" --no-trunc
+
+             echo "===== SERVICE LOGS ====="
+             docker service logs "$SERVICE" \
+               --timestamps \
+               --raw \
+               --tail 200 || true
+             docker service ps "$SERVICE" \
+               --no-trunc \
+               --format '{{.ID}} {{.Node}} {{.CurrentState}} {{.Error}}' \
+               | head -20
+
+             exit 1
+          fi
+          echo "===== FAILED TASKS ====="
           echo "Cleaning up unused containers..."
           docker container prune -f

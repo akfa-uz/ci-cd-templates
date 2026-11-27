@@ -98,7 +98,7 @@ jobs:
                | head -20
 
              exit 1
-          fi
+           fi
           echo "===== FAILED TASKS ====="
           echo "Cleaning up unused containers..."
           docker container prune -f

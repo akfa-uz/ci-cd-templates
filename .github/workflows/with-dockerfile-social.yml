@@ -69,36 +69,16 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}"
-          SERVICE="${{ inputs.service_name }}"
-          
-          echo "Pulling image: $IMAGE"
+          IMAGE="harbor.agentshub.uz/ailabcau/${{ inputs.image_name }}:${{ github.sha }}" 
           docker pull $IMAGE
-
-          echo "Updating service: $SERVICE"
-          
-          if ! docker service update \
+          docker service update \
             --force \
             --with-registry-auth \
             --detach=false \
+            --update-failure-action continue \
+            -update-monitor 60s \
             --image $IMAGE \
-            "$SERVICE"; then
-            echo "Deployment failed! Collecting diagnostics..."
+            ${{ inputs.service_name }}  
 
-            docker service ps "$SERVICE" --no-trunc
-
-            echo "===== SERVICE LOGS ====="
-            docker service logs "$SERVICE" \
-               --timestamps \
-               --raw \
-               --tail 200 || true
-            docker service ps "$SERVICE" \
-               --no-trunc \
-               --format '{{.ID}} {{.Node}} {{.CurrentState}} {{.Error}}' \
-               | head -20
-
-            exit 1
-          fi
-          echo "===== FAILED TASKS ====="
           echo "Cleaning up unused containers..."
           docker container prune -f

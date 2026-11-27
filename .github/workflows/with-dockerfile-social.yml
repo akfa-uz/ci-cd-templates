@@ -78,7 +78,7 @@ jobs:
             --update-failure-action continue \
             -update-monitor 60s \
             --image $IMAGE \
-            ${{ inputs.service_name }}  
+            "$SERVICE"  
 
           echo "Cleaning up unused containers..."
           docker container prune -f
